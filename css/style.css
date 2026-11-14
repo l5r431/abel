@@ -184,3 +184,58 @@ body[data-out=r] #main{animation:outr .26s ease-in forwards}
 .fab{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
 footer{padding-bottom:calc(7rem + env(safe-area-inset-bottom,0px))}
 }
+/* no card containers: plain text blocks, each with a thin line, a dot and an accent line that draws on hover */
+.card,.card:hover,.card.arch,.card.arch:hover{background:none;border:0;border-top:1px solid var(--line);border-radius:0;box-shadow:none;translate:none;text-align:left;position:relative;padding:1.8rem 0 0}
+.card::before{content:"";position:absolute;left:0;top:-5px;width:9px;height:9px;border-radius:50%;background:var(--acc)}
+.card::after{content:"";position:absolute;left:22px;top:-1px;width:44px;height:2px;background:var(--acc);transition:width .6s cubic-bezier(.2,.7,.2,1)}
+.card:hover::after{width:calc(100% - 22px)}
+.bd,.card.arch .bd{display:block;width:auto;height:auto;margin:0 0 .9rem;border:0;background:none;color:var(--acc);font-size:1.7rem}
+.grid{gap:2.4rem 2.2rem}
+.info>div{padding:1rem 0;border:0;border-top:1px solid var(--line);border-radius:0;background:none;position:relative}
+.info>div::after{content:"";position:absolute;left:0;top:-1px;width:36px;height:2px;background:var(--acc)}
+.info>div.map{border-top:0;border-radius:14px}.info>div.map::after{display:none}
+/* a different line design for each section */
+#home .card{border-top:0;border-left:1px solid var(--line);padding:.2rem 0 .2rem 1.6rem}
+#home .card::before{left:-1px;top:0;width:3px;height:40px;border-radius:0;transition:height .6s cubic-bezier(.2,.7,.2,1)}
+#home .card::after{display:none}
+#home .card:hover::before{height:100%}
+#about .card{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:1.8rem 0}
+#about .card::before,#about .card::after{left:50%;width:7px;height:7px;border-radius:0;background:var(--acc);transform:translateX(-50%) rotate(45deg);transition:transform .5s}
+#about .card::before{top:-4px}#about .card::after{top:auto;bottom:-4px}
+#about .card:hover::before,#about .card:hover::after{width:7px;transform:translateX(-50%) rotate(225deg)}
+#about .alt2 .card{border-top:1px dashed var(--ink);border-bottom:0;padding:1.8rem 0 0}
+#about .alt2 .card::before{left:0;top:-7px;width:11px;height:11px;border-radius:50%;background:var(--bg3);border:2px solid var(--acc);transform:none}
+#about .alt2 .card::after{display:none}#about .alt2 .card:hover::before{transform:none}
+#gallery .card{border:0;padding:2rem 1.8rem}
+#gallery .card::before,#gallery .card::after{width:22px;height:22px;border-radius:0;background:none;transition:width .5s,height .5s}
+#gallery .card::before{left:0;top:0;border-top:2px solid var(--acc);border-left:2px solid var(--acc)}
+#gallery .card::after{left:auto;right:0;top:auto;bottom:0;border-bottom:2px solid var(--acc);border-right:2px solid var(--acc)}
+#gallery .card:hover::before,#gallery .card:hover::after{width:44px;height:44px}
+#contact .alt .card{border-top:0;border-bottom:1px solid var(--line);padding:0 0 1.8rem}
+#contact .alt .card::before{display:none}
+#contact .alt .card::after{left:auto;right:0;top:auto;bottom:-1px;width:44px;height:3px;border-radius:3px}
+#contact .alt .card:hover::after{width:100%}
+#contact .alt2 .card{border-top:0;padding:1.8rem 0 0}
+#contact .alt2 .card::before{left:0;top:0;width:11px;height:11px;border-radius:50%;background:none;border:2px solid var(--acc)}
+#contact .alt2 .card::after{left:24px;right:0;top:6px;width:auto;height:1px;background:linear-gradient(90deg,var(--acc),transparent)}
+#contact .alt2 .card:hover::after{width:auto}
+#contact #ok{border-top:0;border-left:3px solid var(--acc);padding:.3rem 0 .3rem 1.2rem}
+#contact #ok::before,#contact #ok::after{display:none}
+.info>div{border-top:0;border-bottom:1px dotted var(--ink)}
+.info>div::after{left:auto;right:0;top:auto;bottom:-4px;width:6px;height:6px;transform:rotate(45deg)}
+.info>div.map{border-bottom:0}
+/* pills and fields lose their boxes too */
+.chip,.qc a{border:0;border-radius:0;background:none;padding:.5rem 0}
+.chips{gap:1.2rem 1.8rem}
+button.chip{border-bottom:1px solid var(--line);position:relative}
+button.chip::after{content:"";position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--acc);transition:width .4s cubic-bezier(.2,.7,.2,1)}
+button.chip.on,button.chip:hover{background:none;color:var(--ink)}
+button.chip.on::after,button.chip:hover::after{width:100%}
+#about .chips .chip{padding:0;letter-spacing:.14em}
+#about .chips .chip+.chip::before{content:"/";margin-right:1.8rem;color:var(--mut)}
+.qc{gap:.8rem 2rem}
+.qc a{position:relative;border-bottom:1px solid var(--line)}
+.qc a::after{content:"";position:absolute;left:50%;bottom:-1px;height:2px;width:0;background:var(--acc);transform:translateX(-50%);transition:width .4s}
+.qc a:hover{background:none;color:var(--ink)}.qc a:hover::after{width:100%}
+form input,form select,form textarea{background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:1rem 0}
+form input:focus,form select:focus,form textarea:focus{border-bottom-color:var(--ink);box-shadow:none}
