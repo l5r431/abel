@@ -68,3 +68,33 @@ cur=document.body.dataset.page;
 document.querySelectorAll(".rv").forEach((el,i)=>{el.style.setProperty("--s",i%2?1:-1);io.observe(el)});
 document.querySelectorAll("[data-n]").forEach(n=>n.textContent=0);
 new ResizeObserver(build).observe(main);document.fonts&&document.fonts.ready.then(build);build();
+/* wireframe camera that spins as you scroll (pure CSS 3D, one rAF loop only while scrolling); each page spins its own way */
+{
+const spin={home:c=>`rotateX(${-12+Math.sin(c*Math.PI*6)*7}deg) rotateY(${-28+c*900}deg)`,about:c=>`rotateZ(${c*720}deg) rotateX(-14deg) rotateY(-28deg)`,gallery:c=>`rotateX(${-c*720}deg) rotateY(-28deg)`,contact:c=>`rotateX(${c*720}deg) rotateY(-28deg)`}[document.body.dataset.page]||(c=>`rotateY(${c*720}deg)`);
+const f=(c,s,x)=>`<div class="cf ${c}" style="${s}">${x||""}</div>`;
+let h=f("fr","transform:translateZ(75px)",f("vf","")+f("lm","")+f("sb",""));
+h+=f("bk","transform:rotateY(180deg) translateZ(75px)",f("scr","")+f("bt","")+f("bt b2",""));
+h+=f("sd","width:150px;left:-75px;transform:rotateY(90deg) translateZ(180px)",f("gr",""));
+h+=f("sd","width:150px;left:-75px;transform:rotateY(-90deg) translateZ(180px)");
+h+=f("tp","height:150px;top:-75px;transform:rotateX(90deg) translateZ(110px)",f("dl","")+f("dl d2","")+f("sh",""));
+h+=f("tp","height:150px;top:-75px;transform:rotateX(-90deg) translateZ(110px)");
+/* prism hump on top */
+h+=f("hp","width:120px;height:50px;left:-60px;top:-160px;transform:translateZ(45px)");
+h+=f("hp","width:120px;height:50px;left:-60px;top:-160px;transform:rotateY(180deg) translateZ(45px)");
+h+=f("hp","width:90px;height:50px;left:-45px;top:-160px;transform:rotateY(90deg) translateZ(60px)");
+h+=f("hp","width:90px;height:50px;left:-45px;top:-160px;transform:rotateY(-90deg) translateZ(60px)");
+h+=f("hp","width:120px;height:90px;left:-60px;top:-205px;transform:rotateX(90deg) translateZ(45px)");
+/* lens barrel: stacked rings, then glass */
+for(let i=0;i<9;i++)h+=`<div class="rg${i%3?"":" tk"}" style="--r:${i?86:104}px;transform:translateZ(${78+i*11}px)"></div>`;
+h+=`<div class="rg gl" style="--r:68px;transform:translateZ(178px)"></div><div class="rg gl g2" style="--r:44px;transform:translateZ(176px)"></div><div class="rg gl g3" style="--r:14px;transform:translateZ(175px)"></div><div class="rg hl" style="--r:9px;transform:translate(-26px,-26px) translateZ(180px)"></div>`;
+document.body.insertAdjacentHTML("beforeend",`<div class="cam3d" aria-hidden="true"><div class="cam">${h}</div></div>`);
+const cam=$(".cam"),calm=matchMedia("(prefers-reduced-motion:reduce)").matches;
+let cur=0,tgt=0,raf=0;
+const prog=()=>{const m=document.documentElement.scrollHeight-innerHeight;return m>0?Math.min(1,scrollY/m):0};
+const pose=()=>{cam.style.transform=spin(cur)};
+const tick=()=>{cur+=(tgt-cur)*.1;pose();raf=Math.abs(tgt-cur)>.0004?requestAnimationFrame(tick):0};
+const go=()=>{tgt=prog();if(calm){cur=tgt;pose();return}raf||(raf=requestAnimationFrame(tick))};
+addEventListener("scroll",go,{passive:true});addEventListener("resize",go);tgt=cur=prog();pose();
+}
+/* grain + smoke layers: injected once per page, see .fx in style.css */
+document.body.insertAdjacentHTML("beforeend","<div class=\"fx smk a\" aria-hidden=\"true\"></div><div class=\"fx smk b\" aria-hidden=\"true\"></div><div class=\"fx grn\" aria-hidden=\"true\"></div>");
