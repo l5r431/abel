@@ -24,8 +24,8 @@ document.addEventListener("click",e=>{const t=e.target.closest(".t");if(!t)retur
 const a=t.getBoundingClientRect(),b=lbf.getBoundingClientRect();lbf.animate([{transform:`translate(${a.left-b.left}px,${a.top-b.top}px) scale(${a.width/b.width},${a.height/b.height})`},{transform:"none"}],{duration:480,easing:"cubic-bezier(.2,.8,.2,1)"})});
 lb.onclick=()=>lb.classList.remove("on");addEventListener("keydown",e=>e.key==="Escape"&&lb.classList.remove("on"));
 /* Formspree: set your form ID in the <form action="https://formspree.io/f/..."> in index.html */
-if($("#fm"))$("#fm").onsubmit=async e=>{e.preventDefault();const f=e.target,b=f.querySelector("button");b.disabled=true;$("#err").hidden=true;
-try{const r=await fetch(f.action,{method:"POST",body:new FormData(f),headers:{Accept:"application/json"}});if(!r.ok)throw 0;f.hidden=true;$("#ok").hidden=false;f.reset()}catch(_){$("#err").hidden=false}b.disabled=false};
+document.querySelectorAll("form[data-ajax]").forEach(f=>f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector("button"),er=f.querySelector(".ferr"),ok=f.parentElement.querySelector(".fok");b.disabled=true;er.hidden=true;
+try{const r=await fetch(f.action,{method:"POST",body:new FormData(f),headers:{Accept:"application/json"}});if(!r.ok)throw 0;f.hidden=true;ok.hidden=false;f.reset()}catch(_){er.hidden=false}b.disabled=false});
 /* reveals + counters */
 const count=el=>{const n=+el.dataset.n,t0=performance.now();(function f(t){const p=Math.min(1,(t-t0)/1600);el.textContent=Math.round(n*(1-Math.pow(1-p,3)))+(p>=1?el.dataset.s||"":"");p<1&&requestAnimationFrame(f)})(t0)};
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add("in");e.target.querySelectorAll("[data-n]").forEach(count);io.unobserve(e.target)}}),{threshold:.15});
@@ -68,33 +68,87 @@ cur=document.body.dataset.page;
 document.querySelectorAll(".rv").forEach((el,i)=>{el.style.setProperty("--s",i%2?1:-1);io.observe(el)});
 document.querySelectorAll("[data-n]").forEach(n=>n.textContent=0);
 new ResizeObserver(build).observe(main);document.fonts&&document.fonts.ready.then(build);build();
-/* wireframe camera that spins as you scroll (pure CSS 3D, one rAF loop only while scrolling); each page spins its own way */
+/* solid camera: ONE small <canvas>, plain 3D maths (depth-sorted, shaded, fully opaque polygons; no DOM layers). It redraws only while the page scrolls and each page spins its own way */
 {
-const spin={home:c=>`rotateX(${-12+Math.sin(c*Math.PI*6)*7}deg) rotateY(${-28+c*900}deg)`,about:c=>`rotateZ(${c*720}deg) rotateX(-14deg) rotateY(-28deg)`,gallery:c=>`rotateX(${-c*720}deg) rotateY(-28deg)`,contact:c=>`rotateX(${c*720}deg) rotateY(-28deg)`}[document.body.dataset.page]||(c=>`rotateY(${c*720}deg)`);
-const f=(c,s,x)=>`<div class="cf ${c}" style="${s}">${x||""}</div>`;
-let h=f("fr","transform:translateZ(75px)",f("vf","")+f("lm","")+f("sb",""));
-h+=f("bk","transform:rotateY(180deg) translateZ(75px)",f("scr","")+f("bt","")+f("bt b2",""));
-h+=f("sd","width:150px;left:-75px;transform:rotateY(90deg) translateZ(180px)",f("gr",""));
-h+=f("sd","width:150px;left:-75px;transform:rotateY(-90deg) translateZ(180px)");
-h+=f("tp","height:150px;top:-75px;transform:rotateX(90deg) translateZ(110px)",f("dl","")+f("dl d2","")+f("sh",""));
-h+=f("tp","height:150px;top:-75px;transform:rotateX(-90deg) translateZ(110px)");
-/* prism hump on top */
-h+=f("hp","width:120px;height:50px;left:-60px;top:-160px;transform:translateZ(45px)");
-h+=f("hp","width:120px;height:50px;left:-60px;top:-160px;transform:rotateY(180deg) translateZ(45px)");
-h+=f("hp","width:90px;height:50px;left:-45px;top:-160px;transform:rotateY(90deg) translateZ(60px)");
-h+=f("hp","width:90px;height:50px;left:-45px;top:-160px;transform:rotateY(-90deg) translateZ(60px)");
-h+=f("hp","width:120px;height:90px;left:-60px;top:-205px;transform:rotateX(90deg) translateZ(45px)");
-/* lens barrel: stacked rings, then glass */
-for(let i=0;i<9;i++)h+=`<div class="rg${i%3?"":" tk"}" style="--r:${i?86:104}px;transform:translateZ(${78+i*11}px)"></div>`;
-h+=`<div class="rg gl" style="--r:68px;transform:translateZ(178px)"></div><div class="rg gl g2" style="--r:44px;transform:translateZ(176px)"></div><div class="rg gl g3" style="--r:14px;transform:translateZ(175px)"></div><div class="rg hl" style="--r:9px;transform:translate(-26px,-26px) translateZ(180px)"></div>`;
-document.body.insertAdjacentHTML("beforeend",`<div class="cam3d" aria-hidden="true"><div class="cam">${h}</div></div>`);
-const cam=$(".cam"),calm=matchMedia("(prefers-reduced-motion:reduce)").matches;
-let cur=0,tgt=0,raf=0;
+const cv=document.createElement("canvas"),ctx=cv.getContext("2d"),R=270,D=1500,TAU=Math.PI*2,rd=Math.PI/180,LT=[-.35,-.55,.76];
+cv.className="cam3d";cv.setAttribute("aria-hidden","true");document.body.append(cv);
+/* the page fades/slides in for ~0.6s and in that time the browser layers it ABOVE the camera, so the camera stays hidden until the animation ends, then fades in */
+{const pe=document.querySelector(".page"),show=()=>cv.classList.add("on");
+ if(!pe||getComputedStyle(pe).animationName==="none")show();else pe.addEventListener("animationend",e=>{if(e.target===pe)show()});
+ setTimeout(show,1000);addEventListener("pageshow",e=>{if(e.persisted)show()})}
+/* [axis,deg] list, outermost first (same order CSS would apply them) */
+const spin={home:c=>[["x",-12+Math.sin(c*Math.PI*6)*7],["y",-28+c*900]],about:c=>[["z",c*720],["x",-14],["y",-28+c*180]],gallery:c=>[["x",-c*720],["y",-28]],contact:c=>[["x",c*720],["y",-28]]}[document.body.dataset.page]||(c=>[["y",c*720]]);
+const ring=(cx,cy,z,r,n=24)=>Array.from({length:n},(_,k)=>{const a=k/n*TAU;return[cx+Math.cos(a)*r,cy+Math.sin(a)*r,z]});
+const rc=(x0,x1,y0,y1,z)=>[[x0,y0,z],[x1,y0,z],[x1,y1,z],[x0,y1,z]];
+const ringY=(cx,y,cz,r,n=24)=>Array.from({length:n},(_,k)=>{const a=k/n*TAU;return[cx+Math.cos(a)*r,y,cz+Math.sin(a)*r]});
+const box=(x0,x1,y0,y1,z0,z1)=>[
+{n:[0,0,1],p:[[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]]},{n:[0,0,-1],p:[[x1,y0,z0],[x0,y0,z0],[x0,y1,z0],[x1,y1,z0]]},
+{n:[1,0,0],p:[[x1,y0,z1],[x1,y0,z0],[x1,y1,z0],[x1,y1,z1]]},{n:[-1,0,0],p:[[x0,y0,z0],[x0,y0,z1],[x0,y1,z1],[x0,y1,z0]]},
+{n:[0,-1,0],p:[[x0,y0,z0],[x1,y0,z0],[x1,y0,z1],[x0,y0,z1]]},{n:[0,1,0],p:[[x0,y1,z1],[x1,y1,z1],[x1,y1,z0],[x0,y1,z0]]}];
+const cyl=(z0,z1,r,seg=26)=>{const f=[];for(let i=0;i<seg;i++){const a=i/seg*TAU,b=(i+1)/seg*TAU,m=(a+b)/2;
+ f.push({s:1,n:[Math.cos(m),Math.sin(m),0],p:[[Math.cos(a)*r,Math.sin(a)*r,z0],[Math.cos(b)*r,Math.sin(b)*r,z0],[Math.cos(b)*r,Math.sin(b)*r,z1],[Math.cos(a)*r,Math.sin(a)*r,z1]]})}
+ f.push({n:[0,0,1],p:ring(0,0,z1,r,seg)},{n:[0,0,-1],p:ring(0,0,z0,r,seg).reverse()});return f};
+/* body, with the small flat details that belong to a face (drawn only while that face is turned toward you) */
+const body=box(-180,180,-110,110,-75,75);
+body[0].d=[{p:rc(100,146,-90,-68,75),k:"c1"},{p:ring(-143,-83,75,7,14),k:"cg"}];
+body[1].d=[{p:rc(-62,150,-82,80,-75),k:"bz"},{p:ring(-133,-47,-75,13,18),k:"c2"},{p:ring(-133,3,-75,13,18),k:"c2"}];
+body[2].d=[{p:[[180,-94,59],[180,-94,-59],[180,94,-59],[180,94,59]],dash:1}];
+body[4].d=[{p:ringY(-106,-110,-20,30,26),k:"c2"},{p:ringY(118,-110,-15,17,18),k:"c1"}];
+const lensFront=cyl(148,168,84);
+lensFront[lensFront.length-2].d=[{p:ring(0,0,168,68),k:"cg"},{p:ring(0,0,168,44,24),k:"c1"},{p:ring(0,0,168,14,16),k:"cg"},{p:ring(-26,-26,168,9,12),k:"gd"}];
+const solids=[{c:[0,0,0],f:body},{c:[0,-135,0],f:box(-60,60,-160,-110,-45,45).slice(0,5)},
+ {c:[0,0,80],f:cyl(75,84,104,34)},{c:[0,0,96],f:cyl(84,108,86)},{c:[0,0,111],f:cyl(108,114,92)},{c:[0,0,128],f:cyl(114,142,86)},{c:[0,0,145],f:cyl(142,148,92)},{c:[0,0,158],f:lensFront}];
+/* back screen: a tiny "photo" (flat-colour polygons, changes as you scroll) with camera UI on top. (u,v) = 0..200 x 0..150 seen from behind the camera */
+const U=(u,v)=>[144-u,v-76,-76],hx=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const lerp=(a,b,t)=>"#"+hx(a).map((v,i)=>Math.round(v+(hx(b)[i]-v)*t).toString(16).padStart(2,"0")).join("");
+const poly=(a,col)=>[a.map(q=>U(q[0],q[1])),col];
+const circ=(u,v,r,col,n=16)=>poly(Array.from({length:n},(_,k)=>[u+Math.cos(k/n*TAU)*r,v+Math.sin(k/n*TAU)*r]),col);
+const sky=(c0,c1,h,n=9)=>Array.from({length:n},(_,i)=>poly([[0,h*i/n],[200,h*i/n],[200,h*(i+1)/n+.6],[0,h*(i+1)/n+.6]],lerp(c0,c1,i/(n-1))));
+const FAR=[[0,112],[0,84],[30,64],[55,88],[85,58],[120,92],[150,70],[200,98],[200,112]],NEAR=[[0,128],[0,102],[40,84],[75,112],[110,94],[160,116],[200,100],[200,128]],GND=[[0,126],[200,126],[200,150],[0,150]];
+const hills=(far,near,gnd)=>[poly(FAR,far),poly(NEAR,near),poly(GND,gnd)];
+const city=()=>{const o=[],b=[[8,24,44],[34,18,62],[54,26,36],[84,20,70],[108,24,48],[136,18,76],[158,30,40]];
+ b.forEach(([u,w,h],i)=>{o.push(poly([[u,126-h],[u+w,126-h],[u+w,126],[u,126]],"#0e0b18"));
+  for(let r=0;r<Math.floor(h/12);r++)for(let k=0;k<Math.floor(w/9);k++)if((i*7+r*5+k*3)%4<2)o.push(poly([[u+3+k*9,126-h+4+r*12],[u+7+k*9,126-h+4+r*12],[u+7+k*9,126-h+9+r*12],[u+3+k*9,126-h+9+r*12]],"#f2c46a"))});
+ return o};
+const scenes=[
+ [...sky("#4a3350","#f0b862",114),circ(140,90,15,"#fbefc4"),...hills("#9a6258","#4a2a28","#1d1311")],
+ [...sky("#14213d","#7d9ac4",114),circ(52,44,9,"#eef2f8"),...hills("#3b4a6e","#18223a","#0c111d")],
+ [...sky("#161229","#7b4a66",126),circ(168,30,7,"#f3ead6"),...city(),poly(GND,"#09070f")]];
+const ui=[poly([[0,137],[200,137],[200,150],[0,150]],"#111"),circ(10,10,3.2,"#e0ac5c"),poly([[176,6],[194,6],[194,13],[176,13]],null),
+ ...[0,1,2].map(i=>poly([[178+i*5.4,8],[181.6+i*5.4,8],[181.6+i*5.4,11],[178+i*5.4,11]],"#f4efe6")),
+ ...Array.from({length:11},(_,k)=>poly([[20+k*16,139.5],[21.4+k*16,139.5],[21.4+k*16,k===5?146:144],[20+k*16,k===5?146:144]],"#f4efe6")),
+ poly([[8,139.5],[30,139.5],[30,141.4],[8,141.4]],"#9d978c")];
+const brk=[[[72,58],[72,48],[82,48]],[[118,48],[128,48],[128,58]],[[128,82],[128,92],[118,92]],[[82,92],[72,92],[72,82]]].map(l=>l.map(q=>U(q[0],q[1])));
+let S=1,DPR=1,col={},c1=[0,0,0],c2=[0,0,0],cur=0,tgt=0,raf=0;
+const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+const getCol=()=>{const s=getComputedStyle(document.documentElement);["c1","c2","cl","cg","cgd"].forEach(k=>col[k]=s.getPropertyValue("--"+k).trim());c1=rgb(col.c1);c2=rgb(col.c2)};
+const size=()=>{const css=innerWidth<700?400:800;DPR=Math.min(devicePixelRatio||1,1.5);cv.style.width=cv.style.height=css+"px";cv.width=cv.height=Math.round(css*DPR);S=css/(2*R)};
+const draw=c=>{
+ const m=spin(c).reverse(),T=(p,t)=>{let[x,y,z]=p;for(const[a,d]of m){const q=d*rd,co=Math.cos(q),si=Math.sin(q);
+  if(a==="x")[y,z]=[y*co-z*si,y*si+z*co];else if(a==="y")[x,z]=[x*co+z*si,-x*si+z*co];else[x,y]=[x*co-y*si,x*si+y*co]}return t?[x,y,z]:[x*D/(D-z),y*D/(D-z),z]};
+ const shade=n=>{const l=Math.max(0,n[0]*LT[0]+n[1]*LT[1]+n[2]*LT[2]),t=.25+.75*l;return`rgb(${c1.map((v,i)=>Math.round(v+(c2[i]-v)*t))})`};
+ ctx.setTransform(DPR,0,0,DPR,0,0);ctx.clearRect(0,0,cv.width,cv.height);
+ ctx.translate(R*S,R*S);ctx.scale(S,S);ctx.lineWidth=1.4/S;ctx.lineJoin="round";
+ const path=p=>{ctx.beginPath();p.forEach((q,i)=>{const[x,y]=T(q);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.closePath()};
+ const dk={c1:col.c1,c2:col.c2,cg:col.cg,gd:col.cgd,bz:"#141312"};
+ solids.map(s=>({s,z:T(s.c,1)[2]})).sort((a,b)=>a.z-b.z).forEach(({s})=>s.f.forEach(f=>{
+  const n=T(f.n,1);if(n[2]<=0)return;
+  path(f.p);ctx.fillStyle=shade(n);ctx.fill();
+  if(f.s){ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=.9/S;ctx.stroke();ctx.lineWidth=1.4/S}else{ctx.strokeStyle=col.cl;ctx.stroke()}
+  (f.d||[]).forEach(d=>{path(d.p);if(d.k){ctx.fillStyle=dk[d.k];ctx.fill()}ctx.setLineDash(d.dash?[6/S,5/S]:[]);ctx.strokeStyle=col.cl;ctx.stroke();ctx.setLineDash([])});
+  if(f===body[1]){const fillP=([p,k])=>{path(p);if(k){ctx.fillStyle=k;ctx.fill()}};
+   /* the photo is blended toward the page tone so headings that pass over the camera stay readable */
+   const base=document.documentElement.dataset.theme==="dark"?c1:c2,soft=([p,k])=>fillP([p,`rgb(${hx(k).map((v,i)=>Math.round(v+(base[i]-v)*.6))})`]);
+   scenes[Math.floor(c*6)%3].forEach(soft);ui.forEach(fillP);
+   ctx.strokeStyle="#f4efe6";ctx.lineWidth=1.2/S;ctx.lineCap="round";path(ui[2][0]);ctx.stroke();
+   brk.forEach(l=>{ctx.beginPath();l.forEach((q,i)=>{const[x,y]=T(q);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke()});ctx.lineWidth=1.4/S}}));
+};
+const calm=matchMedia("(prefers-reduced-motion:reduce)").matches;
 const prog=()=>{const m=document.documentElement.scrollHeight-innerHeight;return m>0?Math.min(1,scrollY/m):0};
-const pose=()=>{cam.style.transform=spin(cur)};
-const tick=()=>{cur+=(tgt-cur)*.1;pose();raf=Math.abs(tgt-cur)>.0004?requestAnimationFrame(tick):0};
-const go=()=>{tgt=prog();if(calm){cur=tgt;pose();return}raf||(raf=requestAnimationFrame(tick))};
-addEventListener("scroll",go,{passive:true});addEventListener("resize",go);tgt=cur=prog();pose();
+const tick=()=>{cur+=(tgt-cur)*.1;draw(cur);raf=Math.abs(tgt-cur)>.0004?requestAnimationFrame(tick):0};
+const go=()=>{tgt=prog();if(calm){cur=tgt;draw(cur);return}raf||(raf=requestAnimationFrame(tick))};
+addEventListener("scroll",go,{passive:true});
+addEventListener("resize",()=>{size();tgt=prog();draw(cur)});
+new MutationObserver(()=>{getCol();draw(cur)}).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+size();getCol();tgt=cur=prog();draw(cur);
 }
-/* grain + smoke layers: injected once per page, see .fx in style.css */
-document.body.insertAdjacentHTML("beforeend","<div class=\"fx smk a\" aria-hidden=\"true\"></div><div class=\"fx smk b\" aria-hidden=\"true\"></div><div class=\"fx grn\" aria-hidden=\"true\"></div>");
